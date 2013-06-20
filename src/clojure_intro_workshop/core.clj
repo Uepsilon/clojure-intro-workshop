@@ -48,10 +48,10 @@
   [world [x y]]
   (if (or (< x 0)
           (< y 0)
-          (>= x (world-width world))
-          (>= y (world-height world)))
+          (>= x (world-height world))
+          (>= y (world-width world)))
     0 ;; respect array bounds
-    (nth (nth world y) x)))
+    (nth (nth world x) y)))
 
 
 (defn pretty-print-world
@@ -71,20 +71,41 @@
      ;; true case - just return the world
      world
      ;; false case - update, print and go again
-     (let [new-world (update-fn world)] ; build new world
+     (let [new-world (update-fn world)] ; build ne world
        (println)
        (pretty-print-world new-world) ; print it
        (recur new-world update-fn (dec cycles))))) ; run again until cycles are zero
 
 
+(defn alive-neighbors [world [row col]]
+  (apply + (for [x [-1 0 1]
+                 y [-1 0 1]
+                 :when (not (and (= x 0) (= y 0)))]
+              (element-at world [(+ row x) (+ col y)]))))
+
+(defn next-cycle-state [curr-state alive-neighbors]
+  (if (zero? curr-state)
+    (if (= alive-neighbors 3)
+      1
+      0)
+    (if (or
+        (= alive-neighbors 2)
+        (= alive-neighbors 3))
+      1
+      0)))
 
 ;; Get going there
 ;; ----------------------------------------------------------------------------
 (defn update-world [world]
   ;; This is your chance to change the world! ;)
-  (create-world (world-width  world)
-                (world-height world))
-  )  ;; Return new world
+  ; (create-world (world-width  world)
+  ;               (world-height world))
+  (map-indexed (fn [row-idx row]
+    (map-indexed (fn [col-idx cell]
+      (let [neighbors (alive-neighbors world [row-idx col-idx])]
+        (next-cycle-state cell neighbors)))
+    row))
+  world))  ;; Return new world
 
 ;; To start the GUI call:
 ;; (start-rendering)
@@ -125,8 +146,8 @@
 
 ;; ----------------------------------------------------------------------------
 ; Here be dragons.
-;
-; Code in here is stuff neede for the fancy GUI repensentation.
+
+;; Code in here is stuff neede for the fancy GUI repensentation.
 ; It deals with threads and shared variables. While this is fun and fairly easy
 ; to write and coordinate in Clojure, it still should be considered a 2nd step.
 ; Feel free to browse this code, but you don't have to understand any of this
@@ -139,7 +160,7 @@
 
 ; This serves as the thread that runs the endless simulation loop.
 (def simulation-running (agent false))
-(def simulation-sleep-ms (atom 600))
+(def simulation-sleep-ms (atom 400))
 (def fps (atom 50))
 
 (defn simulate
@@ -203,7 +224,7 @@
             y (range (world-height @rendered-w))]
         (do  ;; We do our drawing side-effects here
           ;; Set fill based on cell alive state
-          (fill (* 255 (element-at @rendered-w [x y])))
+          (fill (- 255 (* 255 (element-at @rendered-w [x y]))))
           ;; Draw a rect for each cell
           (rect (* x tile-width) (* y tile-height)
                 tile-width tile-height))))))
